@@ -1,0 +1,2 @@
+# Cancer_Type_Prediction
+The purpose of this study was to continue investigation of the predictability of certian disease characteristics based on a patient’s mutation profile. In this study 1,057 cancer cases from four primary tumor sites were analyzed based on their individual mutation profile. In addition to lung cancer I have included kidney, leukemia and brain tumor sites in the investigation. Rather than attempting to predict survival, I have attempted to predict which type of cancer a patient has given their mutation profile.
