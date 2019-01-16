@@ -1,0 +1,1055 @@
+[{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "OR5AR1", 
+          "gene_id": "ENSG00000172459"
+        }, 
+        "aa_change": "L212F", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "OR5AR1", 
+          "gene_id": "ENSG00000172459"
+        }, 
+        "aa_change": "L212F", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "OR5AR1", 
+          "gene_id": "ENSG00000172459"
+        }, 
+        "aa_change": "L212F", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr11:g.56664319C>T", 
+  "ssm_id": "f70f9dd6-1f44-55e5-99cf-c7f3ca293b4b", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "ZNF717", 
+          "gene_id": "ENSG00000227124"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ZNF717", 
+          "gene_id": "ENSG00000227124"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ZNF717", 
+          "gene_id": "ENSG00000227124"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ZNF717", 
+          "gene_id": "ENSG00000227124"
+        }, 
+        "aa_change": "T213S", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "possibly_damaging", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ZNF717", 
+          "gene_id": "ENSG00000227124"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr3:g.75738836T>A", 
+  "ssm_id": "c92f78ae-0b7c-5f76-befc-a40ca0b926f6", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "SCN10A", 
+          "gene_id": "ENSG00000185313"
+        }, 
+        "aa_change": "V1243V", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr3:g.38714033C>T", 
+  "ssm_id": "36eaa488-acdc-5d2b-bcee-2b99e4a569df", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": "E2793*", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "stop_gained"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": "E2793*", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "stop_gained"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": "E299*", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "stop_gained"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "KMT2C", 
+          "gene_id": "ENSG00000055609"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr7:g.152177076C>A", 
+  "ssm_id": "96cee2d2-4d25-5c06-9602-7a99b71b70cd", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": "E88E", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": "E91E", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "DENND2D", 
+          "gene_id": "ENSG00000162777"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr1:g.111198713C>T", 
+  "ssm_id": "04c961b5-5f40-5ecb-8946-d4a44906c2f7", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GGT5", 
+          "gene_id": "ENSG00000099998"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GGT5", 
+          "gene_id": "ENSG00000099998"
+        }, 
+        "aa_change": "V52L", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "benign", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GGT5", 
+          "gene_id": "ENSG00000099998"
+        }, 
+        "aa_change": "V52L", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "benign", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "GGT5", 
+          "gene_id": "ENSG00000099998"
+        }, 
+        "aa_change": "V52L", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "benign", 
+          "sift_impact": "tolerated"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GGT5", 
+          "gene_id": "ENSG00000099998"
+        }, 
+        "aa_change": "V52L", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "unknown", 
+          "sift_impact": "deleterious_low_confidence"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr22:g.24244572C>G", 
+  "ssm_id": "81866edf-25f7-551f-b775-ff74e3b7857e", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASIC4", 
+          "gene_id": "ENSG00000072182"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "ASIC4", 
+          "gene_id": "ENSG00000072182"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASIC4", 
+          "gene_id": "ENSG00000072182"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASIC4", 
+          "gene_id": "ENSG00000072182"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASIC4", 
+          "gene_id": "ENSG00000072182"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr2:g.219532739T>C", 
+  "ssm_id": "479a4d66-09f5-5121-9ce0-2384119be45d", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "RXFP1", 
+          "gene_id": "ENSG00000171509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr4:g.158652078C>T", 
+  "ssm_id": "66e51640-e073-5bb3-bcbd-20cba73547c0", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASPM", 
+          "gene_id": "ENSG00000066279"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "ASPM", 
+          "gene_id": "ENSG00000066279"
+        }, 
+        "aa_change": "I532K", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "benign", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "ASPM", 
+          "gene_id": "ENSG00000066279"
+        }, 
+        "aa_change": "I532K", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "benign", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr1:g.197142657A>T", 
+  "ssm_id": "049840f3-1d77-5e38-9e27-757896e24878", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "downstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "upstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "upstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G219G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G153G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G437G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G474G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G474G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "upstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "NEURL4", 
+          "gene_id": "ENSG00000215041"
+        }, 
+        "aa_change": "G452G", 
+        "annotation": {
+          "vep_impact": "LOW", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "synonymous_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr17:g.7325418C>T", 
+  "ssm_id": "60c3ad26-33a7-529e-9c22-8cb5128d0ded", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GRIN2C", 
+          "gene_id": "ENSG00000161509"
+        }, 
+        "aa_change": "Q53Pfs*44", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "frameshift_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "GRIN2C", 
+          "gene_id": "ENSG00000161509"
+        }, 
+        "aa_change": "Q53Pfs*44", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "frameshift_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GRIN2C", 
+          "gene_id": "ENSG00000161509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GRIN2C", 
+          "gene_id": "ENSG00000161509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "non_coding_transcript_exon_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "GRIN2C", 
+          "gene_id": "ENSG00000161509"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "intron_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr17:g.74854935_74854936insG", 
+  "ssm_id": "45c7f567-5e96-5de5-833c-aaa06aa0c24c", 
+  "mutation_subtype": "Small insertion"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "CEBPA", 
+          "gene_id": "ENSG00000245848"
+        }, 
+        "aa_change": "V308du", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "inframe_insertion"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr19:g.33301489_33301490insCCA", 
+  "ssm_id": "39ba1ac2-efc8-5648-ae39-dd1b2200c864", 
+  "mutation_subtype": "Small insertion"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "DHX15", 
+          "gene_id": "ENSG00000109606"
+        }, 
+        "aa_change": "R222G", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr4:g.24570691G>C", 
+  "ssm_id": "e96ce215-6dd5-5e5d-8117-898a2b6d51f6", 
+  "mutation_subtype": "Single base substitution"
+}]

@@ -1,0 +1,185 @@
+[{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "ANKS4B", 
+          "gene_id": "ENSG00000175311"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr16:g.21250934G>A", 
+  "ssm_id": "8dcc9f24-c132-534f-a6d5-4f12a85e8d4c", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "FAM133A", 
+          "gene_id": "ENSG00000179083"
+        }, 
+        "aa_change": "R215*", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "stop_gained"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "FAM133A", 
+          "gene_id": "ENSG00000179083"
+        }, 
+        "aa_change": "R215*", 
+        "annotation": {
+          "vep_impact": "HIGH", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "stop_gained"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chrX:g.93710062C>T", 
+  "ssm_id": "9843cea9-9911-54d3-a756-b672a3c0a569", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "MMEL1", 
+          "gene_id": "ENSG00000142606"
+        }, 
+        "aa_change": "F415V", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "MMEL1", 
+          "gene_id": "ENSG00000142606"
+        }, 
+        "aa_change": "F258V", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "MMEL1", 
+          "gene_id": "ENSG00000142606"
+        }, 
+        "aa_change": "F415V", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "MMEL1", 
+          "gene_id": "ENSG00000142606"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "upstream_gene_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr1:g.2598236A>C", 
+  "ssm_id": "d23263b7-3849-567e-9fd2-108f37f0b5c8", 
+  "mutation_subtype": "Single base substitution"
+},{
+  "consequence": [
+    {
+      "transcript": {
+        "is_canonical": true, 
+        "gene": {
+          "symbol": "FLT3", 
+          "gene_id": "ENSG00000122025"
+        }, 
+        "aa_change": "N841I", 
+        "annotation": {
+          "vep_impact": "MODERATE", 
+          "polyphen_impact": "probably_damaging", 
+          "sift_impact": "deleterious"
+        }, 
+        "consequence_type": "missense_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "FLT3", 
+          "gene_id": "ENSG00000122025"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "upstream_gene_variant"
+      }
+    }, 
+    {
+      "transcript": {
+        "is_canonical": false, 
+        "gene": {
+          "symbol": "FLT3", 
+          "gene_id": "ENSG00000122025"
+        }, 
+        "aa_change": null, 
+        "annotation": {
+          "vep_impact": "MODIFIER", 
+          "polyphen_impact": "", 
+          "sift_impact": ""
+        }, 
+        "consequence_type": "3_prime_UTR_variant"
+      }
+    }
+  ], 
+  "genomic_dna_change": "chr13:g.28018486T>A", 
+  "ssm_id": "15a9febf-dfd9-574d-92c2-7a73d3482810", 
+  "mutation_subtype": "Single base substitution"
+}]

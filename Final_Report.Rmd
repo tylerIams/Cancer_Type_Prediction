@@ -1,0 +1,445 @@
+---
+title: "Predicting Cancer Type via Tumor Cell Genomic Mutation Profile"
+author: "Tyler Iams"
+date: "June 9th, 2018"
+output: html_document
+---
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(randomForest)
+library(data.table)
+library(gbm)
+library(knitr)
+library(keras)
+
+dat <- read_csv("data/full_data.csv")
+```
+
+## Introduction
+
+  According to the American Cancer Society, lung cancer is the second most common cancer in men and women (not including skin cancer). In 2018 there will be an estimated 234,030 new cases of lung cancer and 154,050 deaths due to lung cancer in the United States.^1^ Lung cancer is far and away the leading cause of cancer death in the United States. Each year, more people die from lung cancer than of colon, breast and prostate cancers combined.  The purpose of this study was to continue investigation of the predictability of certian disease characteristics based on a patient's mutation profile.  In this study 1,057 cancer cases from four primary tumor sites were analyzed based on their individual mutation profile.  In addition to lung cancer I have included kidney, leukemia and brain tumor sites in the investigation.  Rather than attempting to predict survival, I have attempted to predict which type of cancer a patient has given their mutation profile.  
+
+## Data Aggregation and Exploration
+
+  Data for this project was gathered from the The Cancer Genome Atlas^2^ and aggregated via a Java application.  Data was then explored and models were created for cancer type prediction.  The data consisted of five variables, `case`, `cancer_type`, `gene`, `genomic_dna_change`, `chromosome`.
+
+####Variable Description
+
+*  case - instance of a type of cancer.
+*  cancer_type - categorical variable of type of cancer for each case.
+*  gene - the abbreviation for the gene upon which the mutation occurred.
+*  genomic_dna_change - the base-pair-wise location of the mutation.
+*  chromosome - the chromosome upon which the mutation occurred.
+
+  The variables `genomic_dna_change` and `chromosome` were explored in my previous project, and as such they were largely filtered out of this project.  I focused on the `gene` and `cancer_type` variables in this project.  
+
+####General Data Overview
+
+* Leukemia has the most *unique* mutations, whereas kidney has the least (as shown by Table 1).
+```{r, echo=FALSE, warning=FALSE}
+dat %>% count(cancer_type) %>% kable(col.names = c("primary_site", "num_mutations"), align = "l",
+                                     caption = "Table1")
+```
+
+* Leukemia has the most mutations on each chromosome (as shown by Figure 1).
+
+```{r, echo=FALSE, warning=FALSE}
+table01 <- dat %>% select(-genomic_dna_change) %>% unique() %>% group_by(cancer_type) %>% count(chromosome) %>% arrange(desc(n)) 
+
+table01 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = n)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "steel blue4") + ggtitle("Figure 1")
+```
+
+* For each cancer type, the proportion of each mutation seems to be uniformly spread across chromosomes, indicating that chromosome is probably not a good predictor of cancer type (as shown by Figure 2).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dat02 <- dat %>% select(-genomic_dna_change) %>% unique()
+
+dat02 <- dat02 %>% mutate(occurrances = ifelse(cancer_type == "brain", 66596,
+                          ifelse(cancer_type == "kidney", 17457,
+                          ifelse(cancer_type == "leukemia", 168970,
+                          ifelse(cancer_type == "lung", 114409, NA)))))
+
+dat03 <- dat02 %>% group_by(chromosome, cancer_type) %>% count(gene) %>% summarize(sum(n)) 
+
+dat03 <- dat03 %>% rename(sum = `sum(n)`)
+
+dat03 <- dat03 %>%  mutate(proportion = ifelse(cancer_type == "brain", sum/66596,
+                      ifelse(cancer_type == "kidney", sum/17457,
+                      ifelse(cancer_type == "leukemia", sum/168970,
+                      ifelse(cancer_type == "lung", sum/114409, NA)))))
+
+
+dat03 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = proportion)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "firebrick3") + ggtitle("Figure 2")
+```
+
+* For the gene mutations that occur most often in each cancer type (in over 5% of cases here), there appears to be some clear distinctions, indicating that gene mutation may serve as a good predictor of cancer type (as shown by Figure 3).
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+dat04 <- dat02 %>% group_by(cancer_type, occurrances) %>% count(gene) %>% mutate(proportion = (n/occurrances)*100) 
+
+
+dat04 <- dat04 %>% ungroup(cancer_type, occurances) %>% select(cancer_type, gene, proportion) %>% arrange(desc(proportion)) 
+
+dat04 %>% filter(proportion >= .05) %>% ggplot(aes(x = cancer_type, y = gene)) + geom_tile(aes(fill = proportion)) + scale_fill_gradient(low = "cornsilk1", high = "aquamarine4") + ggtitle("Figure 3") + theme(text = element_text(size = 6.5))
+```
+
+## Model Results
+<br>
+
+####1.  Random Forests
+<br>
+
+#####i.  Predict Cancer Type: all vs. all
+
+The first series of models I created attempt to predict which type of cancer a patient has (from the four cancer types) based on mutation profile.  Using Random Forests I was able to achieve 95 percent accuracy, which is startlingly high.
+<br><br>
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod01_cm <- readRDS("data/mod01_cm.rds")
+mod01_imp <- readRDS("data/mod01_imp.rds")
+```
+
+* Confusion Matrix 1:
+```{r, echo=FALSE}
+mod01_cm
+```
+*Confusion Matrix 1 shows that Model 1 gave 95% accuracy, and that seven out of the ten errors were made predicting kidney cancer erroneously for brain (three times) and leukemia (four times).  It is possible that this indicates that it is easier to distinguish lung cancer from the other three types of cancer than between the other three types of cancer amongst themselves.  Regardless, the model accuracy is very high with very few errors, indicating that Model 1 may perform well on performance data.*
+<br><br>
+
+* Gene Importance Table, Model 1:
+```{r, echo=FALSE}
+mod01_imp
+```
+*Gene Importance Table, Model 1 suggests that mutations of the TP53, EGFR, RYR2, CSMD3, and VHL genes are possibly the most significant in differentiating these four types of cancer from one another.*
+<br><br>
+
+#####ii.  Predict Lung: one vs. all
+    
+The next set of models I created attempt to predict each type of cancer individually in a one vs. all format.  In other words, the targets were changed from `lung`, `kidney`, `brain`, `leukemia`, to simply `lung` and `not_lung` (and accordingly for each type of cancer).
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod02_cm <- readRDS("data/mod02_cm.rds")
+mod02_imp <- readRDS("data/mod02_imp.rds")
+```
+
+* Confusion Matrix 2:
+```{r, echo=FALSE}
+mod02_cm
+```
+*Confusion Matrix 2 shows that Model 2 gave 99% accuracy and, as expected, was thus proficient at distinguising lung cancer from non-lung cancer mutation profiles.*
+<br><br>
+
+* Gene Importance Table, Model 2:
+```{r, echo=FALSE}
+mod02_imp
+```
+*Gene Importance Table, Model 2 lists CSMD3 as the most important gene for distinguishing between lung cancer and non lung cancer mutation profiles.*
+<br><br>
+
+
+#####iii.  Predict Kidney: one vs. all
+
+I attempted to predict Kidney cancer in a one versus all format:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod03_cm <- readRDS("data/mod03_cm.rds")
+mod03_imp <- readRDS("data/mod03_imp.rds")
+```
+
+* Confusion Matrix 3:
+```{r, echo=FALSE}
+mod03_cm
+```
+*Confusion Matrix 3 shows 89% accuracy, but for kidney cancer cases it was only 63% accurate.  This means that the model is predicting `not_kidney` for most cases (and given the data's distribution is correct most of the time).*
+<br><br>
+
+* Gene Importance Table, Model 3:
+```{r, echo=FALSE}
+mod03_imp
+```
+*The most important genes for Model 3 to determine whether a patient has kidney cancer or not are shown in Gene Importance Table, Model 3.*
+<br><br>
+
+#####iv.  Predict Brain: one vs. all
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod04_cm <- readRDS("data/mod04_cm.rds")
+mod04_imp <- readRDS("data/mod04_imp.rds")
+```
+
+
+* Confusion Matrix 4:
+```{r, echo=FALSE}
+mod04_cm
+```
+*Confusion Matrix 4 shows that Model 4 was 88% accurate, but suffered from the same problem as Model 3 and predicted `brain` correctly 67% of the time.*
+<br><br>
+
+* Gene Importance Table, Model 4:
+```{r, echo=FALSE}
+mod04_imp
+```
+*Gene Importance Table, Model 4 shows the five most important genes for distinguishing `brain` from `not_brain` according to Model 4.*
+<br><br>
+
+#####v.  Predict Leukemia: one vs. all
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod05_cm <- readRDS("data/mod05_cm.rds")
+mod05_imp <- readRDS("data/mod05_imp.rds")
+```
+
+* Confusion Matrix 5:
+```{r, echo=FALSE}
+mod05_cm
+```
+*Confusion Matrix 5 shows that while Model 5 may have 88% accuracy, it almost always (96% of the time) predicts `not_leukemia`, thus only predicting `leukemia` correctly 25% of the time.  This is a problem, and undermines Model 5 credibility.  It is possible then that leukemia was not easily distinguishable from the other three types of cancer by mutation profile in Model 1, but was an "other" type classification.*
+<br><br>
+
+* Gene Importance Table, Model 5:
+```{r, echo=FALSE}
+mod05_imp
+```
+*Due to Model 5's suspect performance, not much can be garnered from Gene Importance Table, Model 5.*
+<br><br>
+
+####2.  Generalized Boosting Models
+<br>
+
+The next set of models I created were generalized boosting models (created with the `gbm` package).
+Once again, I attempted to predict each type of cancer in an all vs. all format and each type of cancer individually in a one vs. all format.
+
+#####i.  Predict Cancer Type: all vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod06_cm <- readRDS("data/mod06_cm.rds")
+mod06_imp <- readRDS("data/mod06_imp.rds")
+```
+
+* Confusion Matrix 6:
+```{r, echo=FALSE}
+mod06_cm
+```
+*Confusion Matrix 6 shows that Model 6 gave 97% accuracy.*
+<br><br>
+
+* Gene Importance Table, Model 6:
+```{r, echo=FALSE}
+mod06_imp
+```
+*We can see the five most important genes for distinguishing the four types of cancer from one another, according to a generalized boosting model.*
+<br><br>
+
+#####ii.  Predict Lung: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod07_cm <- readRDS("data/mod07_cm.rds")
+mod07_imp <- readRDS("data/mod07_imp.rds")
+```
+
+* Confusion Matrix 7:
+```{r, echo=FALSE}
+mod07_cm
+```
+*We can see that Model 7 save was 100% accurate at distinguishing lung from non-lung cancer cases, quite impressive.*
+<br><br>
+
+* Gene Importance Table, Model 7:
+```{r, echo=FALSE}
+mod07_imp
+```
+*We can see the five most important genes used in distinguishing lung from non-lung cases.*
+<br><br>
+
+#####iii.  Predict Kidney: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod08_cm <- readRDS("data/mod08_cm.rds")
+mod08_imp <- readRDS("data/mod08_imp.rds")
+```
+
+* Confusion Matrix 8:
+```{r, echo=FALSE}
+mod08_cm
+```
+*We can see that Model 8 was 88% accurate in distinguishing kidney from not_kidney, but it suffered from the same problem as it's random forest counterpart (Model 3) in that it was much less accurate when predicting kidney cancer as a yes (it overwhelmingly predicted not_kidney, 0 here).*
+<br><br>
+
+* Gene Importance Table, Model 8:
+```{r, echo=FALSE}
+mod08_imp
+```
+*We can see that many of the same genes serve as the most important predictors some many of the models.*
+<br><br>
+
+#####iv.  Predict Brain: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod09_cm <- readRDS("data/mod09_cm.rds")
+mod09_imp <- readRDS("data/mod09_imp.rds")
+```
+
+* Confusion Matrix 9:
+```{r, echo=FALSE}
+mod09_cm
+```
+*We can see that Model 9 was 90% accurate but less accurate at predicting brain cancer correctly alone (70%).*
+<br><br>
+
+* Gene Importance Table, Model 9:
+```{r, echo=FALSE}
+mod09_imp
+```
+*Many of the usual suspects are important genes for Model 9.*
+<br><br>
+
+#####v.  Predict Leukemia: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod10_cm <- readRDS("data/mod10_cm.rds")
+mod10_imp <- readRDS("data/mod10_imp.rds")
+```
+
+* Confusion Matrix 10:
+```{r, echo=FALSE}
+mod10_cm
+```
+*We can see that Model 10 was 93% accurate but was not much better than baseline at predicting brain as a positive outcome correctly (56%).*
+<br><br>
+
+* Gene Importance Table, Model 10:
+```{r, echo=FALSE}
+mod10_imp
+```
+*We can see the five most important genes for distinguishing leukemia from non-leukemia cases are slightly different than those of the other models.*
+<br><br>
+
+####3.  Neural Networks
+<br>
+
+The next set of models I created were neural networks (created with the `keras` package).
+Once again, I attempted to predict each type of cancer in an all vs. all format and each type of cancer individually in a one vs. all format.
+
+#####i.  Predict Cancer Type: all vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod11_cm <- readRDS("data/mod11_cm.rds")
+```
+
+* Confusion Matrix 11:
+```{r, echo=FALSE}
+mod11_cm
+```
+*We can see that a neural net was the least successful (87%) at distinguishing the four types of cancer from one another.*
+<br><br>
+
+#####ii.  Predict Lung: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod12_cm <- readRDS("data/mod12_cm.rds")
+```
+
+* Confusion Matrix 12:
+```{r, echo=FALSE}
+mod12_cm
+```
+*We can see that Model 13 was 99% accurate, following the trend of lung cancer being the most distinguishable from the other three cancer types.*
+<br><br>
+
+#####iii.  Predict Kidney: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod13_cm <- readRDS("data/mod13_cm.rds")
+```
+
+* Confusion Matrix 13:
+```{r, echo=FALSE}
+mod13_cm
+```
+*We can see that Model 13 was 81% accurate.*
+<br><br>
+
+#####iv.  Predict Brain: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod14_cm <- readRDS("data/mod14_cm.rds")
+```
+
+* Confusion Matrix 9:
+```{r, echo=FALSE}
+mod14_cm
+```
+*Model 14 was 83% accurate.*
+<br><br>
+
+#####v.  Predict Leukemia: one vs. all 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+mod15_cm <- readRDS("data/mod15_cm.rds")
+```
+
+* Confusion Matrix 15:
+```{r, echo=FALSE}
+mod15_cm
+```
+*Model 15 was 98% accurate.*
+<br><br>
+
+##Model Assessment on Performance Data
+<br>
+
+* Model Results on Performance Data Figure 1:
+```{r, echo=FALSE}
+performance_results_1 <- readRDS("data/performance_results_1.rds")
+
+performance_results_1
+```
+* Model Results on Performance Data Figure 2:
+```{r, echo=FALSE}
+performance_results_2 <- readRDS("data/performance_results_2.rds")
+
+performance_results_2
+```
+
+*We can see that overall, `lung` was around 99% predictable and had the highest average predictability.  `Kidney` and `brain` were less predictable than `leukemia`, which was around 94% predictable on average and overall the second most predictable from mutation profile.  In an all vs. all format, there was 91% predictability on average, which is much, much higher than I expected going in to this project.*
+<br><br>
+
+```{r, echo=FALSE}
+important_gene_figure_01 <- readRDS("data/important_gene_figure_01.rds")
+important_gene_figure_02 <- readRDS("data/important_gene_figure_02.rds")
+```
+<br><br>
+
+* Important Genes for predicting cancer type shown in Summary Figure 1:
+```{r, echo=FALSE}
+important_gene_figure_01
+```
+
+*Much can be taken from Summary Figure 1, which shows the most important genes for predicting each cancer type individually and in an all vs. all format.  It is important to note that the unit of importance here is "mean decrease in entropy," which is a relative term that depends on the complexity of the dataset.  The darker the shade of green in this figure, the more important the gene was in deciding whether or not a patient has the corresponding type of cancer.*
+<br><br>
+
+* Important Genes for predicting cancer type shown in Summary Figure 2:
+```{r, echo=FALSE}
+important_gene_figure_02
+```
+
+*Summary Figure 2 contains the same information as Summary Figure 1 but has a higher minimum importance factor.*
+<br><br>
+
+## Conclusion
+
+It can be inferred that many genes are important in determining a patient's cancer type.  Some genes (`ADAM29` and `RB1` for example) are only important in distinguishing whether or not a patient has `brain` cancer, whereas `CSMD3` serves as a predictor for every cancer type.  What we can not infer however, is that `ADAM29` `RB1,` nor `CSMD3's` mutation status being mutated (versus not mutated) provides the model with the key to the determination of cancer type.  In other words, it cannot be said that if a patient has a mutated `ADAM29` and `RB1` gene that they are more or less likely to have brain cancer.  It can be concluded however that the mutation *status* for many genes, especially those in Summary Figures 1 and 2, serve as good predictors for cancer type.
+
+Distinguishing between `lung`, `kidney`, `brain`, and `leukemia` based on tumor site genomic mutation profile seems very promising.  Much literature on the subject currently exists, and further exploration of the most critical genes from this project is in order.  This project has produced results that are surprising in that the prediction accuracy is so high, but not that there seems to be the ability to predict cancer type based on mutation profile.
+
+<br><br><br>
+
+####---Citations---
+
+1.  The American Cancer Society, (2018).  Key Statistics for Lung Cancer. https://www.cancer.org/cancer/non-small-cell-lung-cancer/about/key-statistics.html.
+2.	The National Cancer Institute, (2018).  The Genomic Data Commons Repository.  https://portal.gdc.cancer.gov/repository.
+
+

@@ -1,0 +1,225 @@
+
+
+```{r}
+library(tidyverse)
+library(randomForest)
+library(data.table)
+library(gbm)
+library(knitr)
+library(keras)
+```
+
+```{r}
+profile <- read_csv("mutation_profiles.csv")
+data <- read_csv("data/full_data.csv")
+```
+
+```{r}
+mat_dat <- data %>% select(case, gene) %>% unique() 
+case_vec <- mat_dat %>% select(case) %>% unique()
+gene_vec <- mat_dat %>% select(gene) %>% count(gene) %>% filter(n > 7) %>% select(gene)
+
+for (i in 1:14573) {
+  profile[,i] <- lapply(profile[,i], factor)
+}
+```
+
+```{r}
+case_vec <- case_vec %>% mutate(row = row_number())
+
+case_vec <- case_vec %>% mutate(cancer_type = ifelse(row < 101, "lung",
+                                              ifelse(row >= 101 & row < 201, "brain",
+                                              ifelse(row >= 201 & row < 301, "kidney",
+                                              ifelse(row >= 301 & row < 401, "leukemia",
+                                              ifelse(row >= 401 & row < 501, "lung",
+                                              ifelse(row >= 501 & row < 601, "brain",
+                                              ifelse(row >= 601 & row < 701, "kidney",
+                                              ifelse(row >= 701 & row < 743, "leukemia",
+                                              ifelse(row >= 743 & row < 843, "brain",
+                                              ifelse(row >= 843 & row < 960, "kidney",
+                                              ifelse(row >= 960, "lung", "error"))))))))))))
+
+
+profile <- profile %>% mutate(cancer_type = factor(case_vec$cancer_type))
+
+write_csv(profile, "data/mutation_profiles.csv")
+```
+
+## Take Performance Data Out    ----!! Only Once !!----
+
+```{r}
+# Only excecute this once!
+
+indices <- sample(1:nrow(profile), 211)
+performance <- profile[indices,]
+train_data <- profile[-indices,]
+
+write_csv(performance, "data/performance_data.csv")
+write_csv(train_data, "data/train_data.csv")
+```
+
+## Read in data
+
+```{r}
+performance <- read_csv("data/performance_data.csv")
+for (i in 1:14574) {
+  performance[,i] <- lapply(performance[,i], factor)
+}
+
+train_data <- read_csv("data/train_data.csv")
+for (i in 1:14574) {
+  train_data[,i] <- lapply(train_data[,i], factor)
+}
+
+reference <- tibble(gene = colnames(train_data), name = newnames)
+```
+
+## Random Foresting
+
+```{r}
+indices <- sample(1:nrow(train_data), 200)
+train <- train_data[-indices,]
+train_val <- train_data[indices,]
+train_val_targets <- train_val$V_14574
+
+train_matrix <- model.matrix(~ ., data = train)
+
+train_matrix <- train_matrix[,-1]
+
+newnames <- c(str_c("V_", 1:14574))
+
+setnames(train, old = c(colnames(train)), new = newnames)
+
+# Make the random forest
+
+mod01 <- randomForest(V_14574 ~ ., data = train, mtry = 1000, n.trees = 1000)
+
+preds <- predict(mod01, train_val)
+
+table <- table(preds, train_val_targets)
+
+accuracy <- (table[1,1] + table[2,2] + table[3,3] + table[4,4]) / sum(table)
+error <- 1-accuracy
+```
+
+
+## Boosting
+
+```{r}
+indices <- sample(1:nrow(train_data), 200)
+train <- train_data[-indices,]
+train_val <- train_data[indices,]
+train_val_targets <- train_val$V_14574
+
+mod02 <- gbm(V_14574 ~ ., data = train, distribution = "multinomial", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+preds <- predict(mod02, train_val, n.trees = 10000)
+
+predictions <- apply(preds, 1, which.max)
+
+train_val_targets
+
+predictions_2 <- factor(ifelse(predictions == 4, "lung",
+                             ifelse(predictions == 3, "leukemia",
+                                    ifelse(predictions == 2, "kidney",
+                                           ifelse(predictions == 1, "brain", NA)))))
+
+
+tib <- table(predictions_2, train_val_targets)
+
+(tib[1,1] + tib[2,2] + tib[3,3] + tib[4,4]) / sum(tib)
+
+tib %>% kable()
+
+mod02$trees
+```
+
+```{r}
+# Save models
+saveRDS(mod02, "boost_01.rds")
+saveRDS(mod01, "randomForest_01.rds")
+indices <- as.data.frame(indices)
+write_csv(indices, "indices_for_mod01_mod02.csv")
+
+mod02_pt2 <- readRDS("boost_01.rds")
+mod01 <- readRDS("randomForest_01.rds")
+
+tib <- importance(mod01, type = 2)
+
+tib <- tibble(name = rownames(tib),
+              imp = tib[,1])
+
+tib <- tib %>% arrange(desc(imp)) 
+
+tib <- full_join(tib, reference, by = "name")
+
+#rm(mod02_pt2)
+
+indices <- read_csv("indices_for_mod01_mod02.csv")
+
+vector <- as_vector(indices[,1])
+```
+
+
+## Deep Learning Model
+
+```{r}
+# Read in data
+
+train_data <- read_csv("data/train_data.csv")
+for (i in 1:14574) {
+  train_data[,i] <- lapply(train_data[,i], factor)
+}
+```
+
+```{r}
+indices <- sample(1:nrow(train_data), 200)
+
+train <- model.matrix(~ ., data = train_data[-indices,1:14573])
+
+train <- train[,-1]
+
+to_one_hot <- function(labels, dimension = 4) {
+  results <- matrix(0, nrow = length(labels), ncol = dimension)
+  for (i in 1:length(labels))
+    results[i, labels[[i]]] <- 1
+  results
+}
+
+train_val <- as_vector(train_data[-indices,14574])
+train_val <- to_one_hot(train_val)
+
+
+test <- model.matrix(~ ., data = train_data[indices,1:14573])
+test <- test[,-1]
+test_targets <- as_vector(train_data[indices,14574])
+
+test_targets <- to_one_hot(test_targets)
+```
+
+```{r}
+# verify model dimensions
+ncol(test)
+ncol(train)
+train_val
+test_targets
+
+model <- keras_model_sequential() %>%
+    layer_dense(units = 1024, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 1024, activation = "relu") %>%
+    layer_dense(units = 1024, activation = "relu") %>%
+    layer_dense(units = 512, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 128, activation = "relu") %>%
+    layer_dense(units = 4, activation = "softmax")
+
+model %>% compile(
+    optimizer = "rmsprop",
+    loss = "categorical_crossentropy",
+    metrics = c("accuracy")
+  )
+
+model %>% fit(train, train_val,
+                epochs = 20, batch_size = 128, validation_data = list(test, test_targets))
+```
+

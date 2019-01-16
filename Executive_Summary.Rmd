@@ -1,0 +1,61 @@
+---
+title: "Executive Summary:  Predicting Cancer Type via Tumor Cell Genomic Mutation Profile"
+author: "Tyler Iams"
+date: "6/9/2018"
+output: html_document
+---
+
+## Introduction
+
+  According to the American Cancer Society, lung cancer is the second most common cancer in men and women (not including skin cancer). In 2018 there will be an estimated 234,030 new cases of lung cancer and 154,050 deaths due to lung cancer in the United States.^1^ Lung cancer is far and away the leading cause of cancer death in the United States. Each year, more people die from lung cancer than of colon, breast and prostate cancers combined.  The purpose of this study was to continue investigation of the predictability of certian disease characteristics based on a patient's mutation profile.  In this study 1,057 cancer cases from four primary tumor sites were analyzed based on their individual mutation profile.  In addition to lung cancer I have included kidney, leukemia and brain tumor sites in the investigation.  Rather than attempting to predict survival, I have attempted to predict which type of cancer a patient has given their mutation profile.  
+
+## Data Aggregation and Exploration
+
+  Data for this project was gathered from the The Cancer Genome Atlas^2^ and aggregated via a Java application.  Data was then explored and models were created for cancer type prediction.  The data consisted of five variables, `case`, `cancer_type`, `gene`, `genomic_dna_change`, `chromosome`.
+
+####Variable Description
+
+*  case - instance of a type of cancer.
+*  cancer_type - categorical variable of type of cancer for each case.
+*  gene - the abbreviation for the gene upon which the mutation occurred.
+*  genomic_dna_change - the base-pair-wise location of the mutation.
+*  chromosome - the chromosome upon which the mutation occurred.
+
+  The variables `genomic_dna_change` and `chromosome` were explored in my previous project, and as such they were largely filtered out of this project.  I focused on the `gene` and `cancer_type` variables in this project.  
+  
+
+```{r, echo=FALSE}
+important_gene_figure_01 <- readRDS("data/important_gene_figure_01.rds")
+important_gene_figure_02 <- readRDS("data/important_gene_figure_02.rds")
+```
+<br><br>
+
+* Important Genes for predicting cancer type shown in Summary Figure 1:
+```{r, echo=FALSE}
+important_gene_figure_01
+```
+
+*Much can be taken from Summary Figure 1, which shows the most important genes for predicting each cancer type individually and in an all vs. all format.  It is important to note that the unit of importance here is "mean decrease in entropy," which is a relative term that depends on the complexity of the dataset.  The darker the shade of green in this figure, the more important the gene was in deciding whether or not a patient has the corresponding type of cancer.*
+<br><br>
+
+* Important Genes for predicting cancer type shown in Summary Figure 2:
+```{r, echo=FALSE}
+important_gene_figure_02
+```
+
+*Summary Figure 2 contains the same information as Summary Figure 1 but has a higher minimum importance factor.*
+<br><br>
+
+## Results and Conclusion
+
+It can be inferred that many genes are important in determining a patient's cancer type.  Some genes (`ADAM29` and `RB1` for example) are only important in distinguishing whether or not a patient has `brain` cancer, whereas `CSMD3` serves as a predictor for every cancer type.  What we can not infer however, is that `ADAM29` `RB1,` nor `CSMD3's` mutation status being mutated (versus not mutated) provides the model with the key to the determination of cancer type.  In other words, it cannot be said that if a patient has a mutated `ADAM29` and `RB1` gene that they are more or less likely to have brain cancer.  It can be concluded however that the mutation *status* for many genes, especially those in Summary Figures 1 and 2, serve as good predictors for cancer type.
+
+Distinguishing between `lung`, `kidney`, `brain`, and `leukemia` based on tumor site genomic mutation profile seems very promising.  Much literature on the subject currently exists, and further exploration of the most critical genes from this project is in order.  This project has produced results that are surprising in that the prediction accuracy is so high, but not that there seems to be the ability to predict cancer type based on mutation profile.
+
+<br><br><br>
+
+####---Citations---
+
+1.  The American Cancer Society, (2018).  Key Statistics for Lung Cancer. https://www.cancer.org/cancer/non-small-cell-lung-cancer/about/key-statistics.html.
+2.	The National Cancer Institute, (2018).  The Genomic Data Commons Repository.  https://portal.gdc.cancer.gov/repository.
+

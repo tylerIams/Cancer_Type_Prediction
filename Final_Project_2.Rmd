@@ -1,0 +1,1493 @@
+---
+title: "Predicting Cancer Type via Tumor Cell Genomic Mutation Profile"
+author: "Tyler Iams"
+date: "June 1st, 2018"
+output: html_document
+---
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+library(tidyverse)
+library(randomForest)
+library(data.table)
+library(gbm)
+library(knitr)
+library(keras)
+
+dat <- read_csv("data/full_data.csv")
+```
+
+
+## Introduction
+
+  According to the American Cancer Society, lung cancer is the second most common cancer in men and women (not including skin cancer). In 2018 there will be an estimated 234,030 new cases of lung cancer and 154,050 deaths due to lung cancer in the United States. Lung cancer is far and away the leading cause of cancer death in the United States. Each year, more people die from lung cancer than of colon, breast and prostate cancers combined.  The purpose of this study was to continue investigation of the predictability of certian disease characteristics based on a patient's mutation profile.  In this study 1,057 cancer cases from four primary tumor sites were analyzed based on their individual mutation profile.  In addition to lung cancer I have included kidney, leukemia and brain tumor sites in the investigation.  And rather than attempting to predict survival, I have attempted to predict which type of cancer a patient has, given their mutation profile.  
+
+## Data Aggregation and Exploration
+
+  Data for this project was gathered from the The Cancer Genome Atlas and aggregated via a Java application.  Data was then uploaded and explored.  The data consisted of five variables, `case`, `cancer_type`, `gene`, `genomic_dna_change`, `chromosome`.
+
+####Variable Description
+
+*  case - instance of a type of cancer.
+*  cancer_type - categorical variable of type of cancer for each case.
+*  gene - the abbreviation for the gene upon which the mutation occurred.
+*  genomic_dna_change - the base-pair-wise location of the mutation.
+*  chromosome - the chromosome upon which the mutation occurred.
+
+  The variables `genomic_dna_change` and `chromosome` were explored in my previous project, and as such they were largely filtered out of this project.  I focused on the `gene` and `cancer_type` variables in this project.  
+
+####General Data Overview
+
+* Leukemia has the most *unique* mutations, whereas kidney has the least (as shown by Table 1).
+```{r, echo=FALSE, warning=FALSE}
+dat %>% count(cancer_type) %>% kable(col.names = c("primary_site", "num_mutations"), align = "l",
+                                     caption = "Table1")
+```
+
+* Leukemia has the most mutations on each chromosome (as shown by Figure 1).
+
+```{r, echo=FALSE, warning=FALSE}
+table01 <- dat %>% select(-genomic_dna_change) %>% unique() %>% group_by(cancer_type) %>% count(chromosome) %>% arrange(desc(n)) 
+
+table01 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = n)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "steel blue4") + ggtitle("Figure 1")
+```
+
+* For each cancer type, the proportion of each mutation seems to be uniformly spread across chromosomes, indicating that chromosome is probably not a good predictor of cancer type (as shown by Figure 2).
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dat02 <- dat %>% select(-genomic_dna_change) %>% unique()
+
+dat02 <- dat02 %>% mutate(occurrances = ifelse(cancer_type == "brain", 66596,
+                          ifelse(cancer_type == "kidney", 17457,
+                          ifelse(cancer_type == "leukemia", 168970,
+                          ifelse(cancer_type == "lung", 114409, NA)))))
+
+dat03 <- dat02 %>% group_by(chromosome, cancer_type) %>% count(gene) %>% summarize(sum(n)) 
+
+dat03 <- dat03 %>% rename(sum = `sum(n)`)
+
+dat03 <- dat03 %>%  mutate(proportion = ifelse(cancer_type == "brain", sum/66596,
+                      ifelse(cancer_type == "kidney", sum/17457,
+                      ifelse(cancer_type == "leukemia", sum/168970,
+                      ifelse(cancer_type == "lung", sum/114409, NA)))))
+
+
+dat03 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = proportion)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "firebrick3") + ggtitle("Figure 2")
+```
+
+* For the gene mutations that occur most often in each cancer type (in over 5% of cases here), there appears to be some clear distinctions, indicating that gene mutation may serve as a good predictor of cancer type (as shown by Figure 3).
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+dat04 <- dat02 %>% group_by(cancer_type, occurrances) %>% count(gene) %>% mutate(proportion = (n/occurrances)*100) 
+
+
+dat04 <- dat04 %>% ungroup(cancer_type, occurances) %>% select(cancer_type, gene, proportion) %>% arrange(desc(proportion)) 
+
+dat04 %>% filter(proportion >= .05) %>% ggplot(aes(x = cancer_type, y = gene)) + geom_tile(aes(fill = proportion)) + scale_fill_gradient(low = "cornsilk1", high = "aquamarine4") + ggtitle("Figure 3")
+```
+
+## Model Building
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(101)
+
+# Read in data
+dat_profile <- read_csv("data/mutation_profiles.csv")
+
+newnames <- c(str_c("V_", 1:14574))
+
+reference <- tibble(gene = colnames(dat_profile), name = newnames)
+
+reference <- reference[-14574,]
+
+setnames(dat_profile, old = c(colnames(dat_profile)), new = newnames)
+
+indices <- sample(1:length(dat_profile$V_1), 211)
+
+for (i in 1:14574) {
+  dat_profile[,i] <- lapply(dat_profile[,i], factor)
+}
+
+performance_dat <- dat_profile[indices,]
+train_dat <- dat_profile[-indices,]
+
+write_csv(performance_dat, "data/performance_dat.csv")
+write_csv(train_dat, "data/train_dat.csv")
+write_csv(reference, "data/reference.csv")
+```
+
+1.  Random Forests
+
+    i.  Predict cancer type: all vs. all
+
+The first series of models I created attempt to predict which type of cancer a patient has (from the four cancer types) based on mutation profile.  Using Random Forests I was able to achieve between 90 and 95 percent accuracy, which was startlingly high.  
+
+```{r, echo=FALSE, warning=FALSE}
+## Set training and train val datasets
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14574
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Read in the Random Forest model I already have:
+
+rf_mod00 <- readRDS("randomForest_01.rds")
+
+preds <- predict(rf_mod00, train_val)
+
+confusion_matrix_rfm_mod00 <- table(preds, train_val_targets)
+
+mod00_accuracy <- (confusion_matrix_rfm_mod00[1,1] + confusion_matrix_rfm_mod00[2,2] + confusion_matrix_rfm_mod00[3,3] + confusion_matrix_rfm_mod00[4,4]) / sum(confusion_matrix_rfm_mod00)
+
+rf_mod00_imp <- importance(rf_mod00)
+
+rf_mod00_imp <- tibble(name = rownames(rf_mod00_imp), imp = rf_mod00_imp[,1])
+
+rf_mod00_imp <- rf_mod00_imp %>% arrange(desc(imp))
+
+rf_mod00_imp <- full_join(rf_mod00_imp, reference, by = "name")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod01_cm <- confusion_matrix_rfm_mod00 %>% kable(caption = str_c("Confusion Matrix 1: ", mod00_accuracy*100, "% accuracy"))
+
+saveRDS(mod01_cm, "data/mod01_cm.rds")
+
+mod01_imp <- rf_mod00_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod01_imp, "data/mod01_imp.rds")
+```
+
+
+      ii.  Predict Lung: one vs. all
+    
+The next set of models I created attempted to predict each type of cancer individually in a one vs. all format.  In other words, the targets were changed from `lung`, `kidney`, `brain`, `leukemia`, to simply `lung` and `not_lung` (and accordingly for each type of cancer).
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Type Singularly
+
+#------------LUNG---------------
+
+# Create a vector with a binary variable
+train_targets_Lung <- ifelse(train_dat$V_14574 == "lung", "lung", "not_lung")
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Lung))
+
+# Sample train and validation set
+set.seed(102)
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# Create the model and evaluate it
+
+# mod02 <- randomForest(V_14575 ~ . -V_14574, data = train, mtry = 1000, n.trees = 1000)
+
+mod02 <- readRDS("data/mod02.rds")
+
+preds <- predict(mod02, train_val)
+
+confusion_matrix_mod02 <- table(preds, train_val_targets)
+
+accuracy <- (confusion_matrix_mod02[1,1] + confusion_matrix_mod02[2,2]) / sum(confusion_matrix_mod02)
+
+mod02_imp <- importance(mod02, scale = 2)
+
+mod02_imp <- tibble(name = rownames(mod02_imp), imp = mod02_imp[,1])
+
+mod02_imp <- full_join(mod02_imp, reference, by = "name")
+
+mod02_imp <- mod02_imp %>% arrange(desc(imp))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod02_cm <- confusion_matrix_mod02 %>% kable(caption = str_c("Confusion Matrix 2: ", accuracy*100, "% accuracy"))
+
+mod02_imp <- mod02_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod02_cm, "data/mod02_cm.rds")
+saveRDS(mod02_imp, "data/mod02_imp.rds")
+```
+
+```{r, eval=FALSE, echo=FALSE}
+# write the model to file
+
+saveRDS(mod02, "data/mod02.rds")
+```
+
+
+      iii.  Predict Kidney: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Singularly
+
+#-------------Kidney---------------#
+
+train_targets_Kidney <- ifelse(train_dat$V_14574 == "kidney", "kidney", "not_kidney")
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Kidney))
+
+# Sample train and validation set
+set.seed(103)
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# mod03 <- randomForest(V_14575 ~ . -V_14574, data = train, mtry = 1000, n.trees = 1000)
+mod03<- readRDS("data/mod03.rds")
+
+
+preds <- predict(mod03, train_val)
+
+confusion_matrix_mod03 <- table(preds, train_val_targets)
+
+accuracy <- (confusion_matrix_mod03[1,1] + confusion_matrix_mod03[2,2]) / sum(confusion_matrix_mod03)
+
+mod03_imp <- importance(mod03, scale = 2)
+
+mod03_imp <- tibble(name = rownames(mod03_imp), imp = mod03_imp[,1])
+
+mod03_imp <- full_join(mod03_imp, reference, by = "name")
+
+mod03_imp <- mod03_imp %>% arrange(desc(imp))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod03_cm <- confusion_matrix_mod03 %>% kable(caption = str_c("Confusion Matrix 3: ", accuracy*100, "% accuracy"))
+
+mod03_imp <- mod03_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod03_cm, "data/mod03_cm.rds")
+saveRDS(mod03_imp, "data/mod03_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod03, "data/mod03.rds")
+```
+
+      iv.  Predict Brain: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Singularly
+
+#-------------Brain---------------#
+
+train_targets_Brain <- ifelse(train_dat$V_14574 == "brain", "brain", "not_brain")
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Brain))
+
+# Sample train and validation set
+set.seed(104)
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# mod04 <- randomForest(V_14575 ~ . -V_14574, data = train, mtry = 1000, n.trees = 1000)
+mod04<- readRDS("data/mod04.rds")
+
+preds <- predict(mod04, train_val)
+
+confusion_matrix_mod04 <- table(preds, train_val_targets)
+
+accuracy <- (confusion_matrix_mod04[1,1] + confusion_matrix_mod04[2,2]) / sum(confusion_matrix_mod04)
+
+mod04_imp <- importance(mod04, scale = 2)
+
+mod04_imp <- tibble(name = rownames(mod04_imp), imp = mod04_imp[,1])
+
+mod04_imp <- full_join(mod04_imp, reference, by = "name")
+
+mod04_imp <- mod04_imp %>% arrange(desc(imp))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod04_cm <- confusion_matrix_mod04 %>% kable(caption = str_c("Confusion Matrix 4: ", accuracy*100, "% accuracy"))
+
+mod04_imp <- mod04_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod04_cm, "data/mod04_cm.rds")
+saveRDS(mod04_imp, "data/mod04_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod04, "data/mod04.rds")
+```
+
+      v.  Predict Leukemia: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Singularly
+
+#-------------Leukemia-------------#
+train_targets_Leukemia <- ifelse(train_dat$V_14574 == "leukemia", "leukemia", "not_leukemia")
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Leukemia))
+
+# Sample train and validation set
+set.seed(105)
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# mod05 <- randomForest(V_14575 ~ . -V_14574, data = train, mtry = 1000, n.trees = 1000)
+mod05<- readRDS("data/mod05.rds")
+
+preds <- predict(mod05, train_val)
+
+confusion_matrix_mod05 <- table(preds, train_val_targets)
+
+accuracy <- (confusion_matrix_mod05[1,1] + confusion_matrix_mod05[2,2]) / sum(confusion_matrix_mod05)
+
+mod05_imp <- importance(mod05, scale = 2)
+
+mod05_imp <- tibble(name = rownames(mod05_imp), imp = mod05_imp[,1])
+
+mod05_imp <- full_join(mod05_imp, reference, by = "name")
+
+mod05_imp <- mod05_imp %>% arrange(desc(imp))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod05_cm <- confusion_matrix_mod05 %>% kable(caption = str_c("Confusion Matrix 5: ", accuracy*100, "% accuracy"))
+
+mod05_imp <- mod05_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod05_cm, "data/mod05_cm.rds")
+saveRDS(mod05_imp, "data/mod05_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod05, "data/mod05.rds")
+```
+
+2.  Generalized Boosting Models
+
+    i.  Predict cancer type: all vs. all
+  
+Next, I attempted to predict the same set of targets but with a generalized boosted regression (gbm) model.  
+
+```{r, echo=FALSE, warning=FALSE}
+# train_dat <- train_dat %>% select(-V_14575)
+
+set.seed(106)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14574
+
+boost_mod00 <- readRDS("boost_01.rds")
+
+boost_preds <- predict(boost_mod00, train_val, n.trees = 10000)
+
+predictions <- apply(boost_preds, 1, which.max)
+
+predictions <- factor(ifelse(predictions == 4, "lung",
+                             ifelse(predictions == 3, "leukemia",
+                                    ifelse(predictions == 2, "kidney",
+                                           ifelse(predictions == 1, "brain", NA)))))
+
+
+confusion_matrix_boost_mod00 <- table(predictions, train_val_targets)
+
+accuracy <- (confusion_matrix_boost_mod00[1,1] + confusion_matrix_boost_mod00[2,2] + confusion_matrix_boost_mod00[3,3] + confusion_matrix_boost_mod00[4,4]) / sum(confusion_matrix_boost_mod00)
+
+
+boost_mod00_imp <- summary.gbm(boost_mod00, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+boost_mod00_imp <- tibble(name = boost_mod00_imp$var, imp = boost_mod00_imp$rel.inf)
+
+boost_mod00_imp <- full_join(boost_mod00_imp, reference, by = "name")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+
+mod06_cm <- confusion_matrix_boost_mod00 %>% kable(caption = str_c("Confusion Matrix 6: ", accuracy*100, "% accuracy"))
+
+mod06_imp <- boost_mod00_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance")
+
+saveRDS(mod06_cm, "data/mod06_cm.rds")
+saveRDS(mod06_imp, "data/mod06_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE, warning=FALSE}
+train_dat <- train_dat %>% select(-V_14575)
+
+set.seed(106)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14574
+
+mod06 <- gbm(V_14574 ~ ., data = train, distribution = "multinomial", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+mod06_preds <- predict(mod06, train_val, n.trees = 10000)
+
+predictions <- apply(preds, 1, which.max)
+
+predictions_2 <- factor(ifelse(predictions == 4, "lung",
+                             ifelse(predictions == 3, "leukemia",
+                                    ifelse(predictions == 2, "kidney",
+                                           ifelse(predictions == 1, "brain", NA)))))
+
+
+tib <- table(predictions_2, train_val_targets)
+
+(tib[1,1] + tib[2,2] + tib[3,3] + tib[4,4]) / sum(tib)
+```
+
+    ii.  Predict Lung: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Type Singularly
+
+#------------LUNG---------------
+
+# Create a vector with a binary variable
+train_targets_Lung <- ifelse(train_dat$V_14574 == "lung", 1, 0)
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = train_targets_Lung)
+
+# Sample train and validation set
+set.seed(107)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# Create the model and evaluate it
+
+#mod07 <- gbm(V_14575 ~ . -V_14574, data = train, distribution = "bernoulli", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+mod07 <- readRDS("data/mod07.rds")
+
+mod07_preds <- predict(mod07, train_val, n.trees = 10000, type = "response")
+
+mod07_preds <- ifelse(mod07_preds >= .5, 1, 0)
+
+confusion_matrix_mod07 <- table(mod07_preds, train_val_targets)
+
+mod07_accuracy <- (confusion_matrix_mod07[1,1] + confusion_matrix_mod07[2,2])/sum(confusion_matrix_mod07)
+
+mod07_imp <- summary.gbm(mod07, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod07_imp <- tibble(name = mod07_imp$var, imp = mod07_imp$rel.inf)
+
+mod07_imp <- full_join(mod07_imp, reference, by = "name")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod07_cm <- confusion_matrix_mod07 %>% kable(caption = str_c("Confusion Matrix 7: ", mod07_accuracy*100, "% accuracy"))
+
+mod07_imp <- mod07_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance") 
+
+saveRDS(mod07_cm, "data/mod07_cm.rds")
+saveRDS(mod07_imp, "data/mod07_imp.rds")
+```
+
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod07, "data/mod07.rds")
+```
+
+    iii.  Predict Kidney: one vs. all
+    
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Type Singularly
+
+#-----------KIDNEY---------------
+
+# Create a vector with a binary variable
+train_targets_Kidney <- ifelse(train_dat$V_14574 == "kidney", 1, 0)
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = train_targets_Kidney)
+
+# Sample train and validation set
+set.seed(108)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+# Create the model and evaluate it
+
+# mod08 <- gbm(V_14575 ~ . -V_14574, data = train, distribution = "bernoulli", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+mod08 <- readRDS("data/mod08.rds")
+
+mod08_preds <- predict(mod08, train_val, n.trees = 10000, type = "response")
+
+mod08_preds <- ifelse(mod08_preds >= .5, 1, 0)
+
+mod08_table <- table(mod08_preds, train_val_targets)
+
+mod08_accuracy <- (mod08_table[1,1] + mod08_table[2,2])/sum(mod08_table)
+
+mod08_imp <- summary.gbm(mod08, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod08_imp <- tibble(name = mod08_imp$var, imp = mod08_imp$rel.inf)
+
+mod08_imp <- full_join(mod08_imp, reference, by = "name")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod08_cm <- mod08_table %>% kable(caption = str_c("Confusion Matrix 8: ", mod08_accuracy*100, "% accuracy"))
+
+mod08_imp <- mod08_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance") 
+
+saveRDS(mod08_cm, "data/mod08_cm.rds")
+saveRDS(mod08_imp, "data/mod08_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod08, "data/mod08.rds")
+```
+    
+    iv.  Predict Brain: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Type Singularly
+
+#-----------BRAIN---------------
+
+# Create a vector with a binary variable
+train_targets_Brain <- ifelse(train_dat$V_14574 == "brain", 1, 0)
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = train_targets_Brain)
+
+# Sample train and validation set
+set.seed(109)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+
+# Create the model and evaluate it
+
+#mod09 <- gbm(V_14575 ~ . -V_14574, data = train, distribution = "bernoulli", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+mod09 <- readRDS("data/mod09.rds")
+
+mod09_preds <- predict(mod09, train_val, n.trees = 10000, type = "response")
+
+mod09_preds <- ifelse(mod09_preds >= .5, 1, 0)
+
+mod09_table <- table(mod09_preds, train_val_targets)
+
+mod09_accuracy <- (mod09_table[1,1] + mod09_table[2,2])/sum(mod09_table)
+
+mod09_imp <- summary.gbm(mod09, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod09_imp <- tibble(name = mod09_imp$var, imp = mod09_imp$rel.inf)
+
+mod09_imp <- full_join(mod09_imp, reference, by = "name")
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod09_cm <- mod09_table %>% kable(caption = str_c("Confusion Matrix 9: ", mod09_accuracy*100, "% accuracy"))
+
+mod09_imp <- mod09_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance") 
+
+saveRDS(mod09_cm, "data/mod09_cm.rds")
+saveRDS(mod09_imp, "data/mod09_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod09, "data/mod09.rds")
+```
+
+    v.  Predict Leukemia: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Predict Cancer Type Singularly
+
+#-----------LEUKEMIA---------------
+
+# Create a vector with a binary variable
+train_targets_Leukemia <- ifelse(train_dat$V_14574 == "leukemia", 1, 0)
+
+# Separate Train Data into a new dataset with Lung as Targets
+train_dat <- train_dat %>% mutate(V_14575 = train_targets_Leukemia)
+
+# Sample train and validation set
+set.seed(110)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+
+
+# Create the model and evaluate it
+
+#mod10 <- gbm(V_14575 ~ . -V_14574, data = train, distribution = "bernoulli", n.trees = 10000, interaction.depth = 3, shrinkage = .001)
+
+mod10 <- readRDS("data/mod10.rds")
+
+mod10_preds <- predict(mod10, train_val, n.trees = 10000, type = "response")
+
+mod10_preds <- ifelse(mod10_preds >= .5, 1, 0)
+
+mod10_table <- table(mod10_preds, train_val_targets)
+
+mod10_accuracy <- (mod10_table[1,1] + mod10_table[2,2])/sum(mod10_table)
+
+mod10_imp <- summary.gbm(mod10, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod10_imp <- tibble(name = mod10_imp$var, imp = mod10_imp$rel.inf)
+
+mod10_imp <- full_join(mod10_imp, reference, by = "name")
+
+```  
+
+```{r, echo=FALSE, warning=FALSE}
+mod10_cm <- mod10_table %>% kable(caption = str_c("Confusion Matrix 10: ", mod10_accuracy*100, "% accuracy"))
+
+mod10_imp <- mod10_imp[1:5,3:2] %>% kable(digits = 2, caption = "Gene Importance") 
+
+saveRDS(mod10_cm, "data/mod10_cm.rds")
+saveRDS(mod10_imp, "data/mod10_imp.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod10, "data/mod10.rds")
+```
+
+3.  Deep Learning
+
+    i.  Predict cancer type: all vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+# Take out the one v all column
+train_dat <- train_dat %>% select(-V_14575)
+
+# Sample train and validation set
+set.seed(111)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_targets <- train$V_14574
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14574
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Reshape the data
+train <- model.matrix(~ ., data = train[,1:14573])
+train_val <- model.matrix(~ ., data = train_val[,1:14573])
+
+train <- train[,-1]
+train_val <- train_val[,-1]
+
+to_one_hot <- function(labels, dimension = 4) {
+  results <- matrix(0, nrow = length(labels), ncol = dimension)
+  for (i in 1:length(labels))
+    results[i, labels[[i]]] <- 1
+  results
+}
+
+train_targets <- to_one_hot(train_targets)
+
+train_val_targets <- to_one_hot(train_val_targets)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# verify model dimensions
+mod11 <- keras_model_sequential() %>%
+    layer_dense(units = 1024, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 512, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 4, activation = "softmax")
+
+mod11 %>% compile(
+    optimizer = "rmsprop",
+    loss = "categorical_crossentropy",
+    metrics = c("accuracy")
+  )
+
+mod11 %>% fit(train, train_targets,
+                epochs = 20, batch_size = 128, validation_data = list(train_val, train_val_targets))
+
+preds_mod11 <- predict_on_batch(mod11, x = train_val)
+
+predictions <- apply(preds_mod11, 1, which.max)
+
+predictions_2 <- factor(ifelse(predictions == 4, "lung",
+                             ifelse(predictions == 3, "leukemia",
+                                    ifelse(predictions == 2, "kidney",
+                                         ifelse(predictions == 1, "brain", NA)))))
+
+# Reshape the train_val_targets back to what they were
+
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14574
+confusion_matrix_mod11 <- table(predictions_2, train_val_targets)
+
+mod_11_accuracy <- (confusion_matrix_mod11[1,1] + confusion_matrix_mod11[2,2] + confusion_matrix_mod11[3,3] + confusion_matrix_mod11[4,4]) / sum(confusion_matrix_mod11)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod11_cm <- confusion_matrix_mod11 %>% kable(caption = "Confusion Matrix 11: 90.5% accuracy")
+
+saveRDS(mod11_cm, "data/mod11_cm.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod11, "data/mod11.rds")
+saveRDS(confusion_matrix_mod11, "confusion_mat_mod11.csv")
+```
+
+    ii.  Predict Lung: one vs. all
+
+```{r, echo=FALSE, warning=FALSE}
+train_targets_Lung <- ifelse(train_dat$V_14574 == "lung", "lung", "not_lung")
+
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Lung))
+
+# Sample train and validation set
+set.seed(112)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_targets <- train$V_14575
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+train_targets <- ifelse(train_targets == "not_lung", 0, 1)
+train_val_targets <- ifelse(train_val_targets == "not_lung", 0, 1)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Reshape the data
+train <- model.matrix(~ ., data = train[,1:14573])
+train_val <- model.matrix(~ ., data = train_val[,1:14573])
+
+train <- train[,-1]
+train_val <- train_val[,-1]
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod12 <- keras_model_sequential() %>%
+    layer_dense(units = 1024, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 512, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 1, activation = "sigmoid")
+
+mod12 %>% compile(
+    optimizer = "rmsprop",
+    loss = "binary_crossentropy",
+    metrics = c("accuracy")
+  )
+
+mod12 %>% fit(train, train_targets,
+                epochs = 15, batch_size = 128, validation_data = list(train_val, train_val_targets))
+
+preds_mod12 <- predict_on_batch(mod12, x = train_val)
+
+preds_mod12 <- ifelse(preds_mod12 >= .5, 1, 0)
+
+confusion_matrix_mod12 <- table(preds_mod12, train_val_targets)
+
+mod12_accuracy <- (confusion_matrix_mod12[1,1] + confusion_matrix_mod12[2,2]) / sum(confusion_matrix_mod12)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod12_cm <- confusion_matrix_mod12 %>% kable(caption = "Confusion Matrix 12: 98.5% accuracy")
+
+saveRDS(mod12_cm, "data/mod12_cm.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod12, "data/mod12.rds")
+saveRDS(confusion_matrix_mod12, "confusion_mat_mod12.rds")
+```
+
+    iii.  Predict Kidney:  one vs. all
+    
+```{r, echo=FALSE, warning=FALSE}
+train_targets_Kidney <- ifelse(train_dat$V_14574 == "kidney", "kidney", "not_kidney")
+
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Kidney))
+
+# Sample train and validation set
+set.seed(113)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_targets <- train$V_14575
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+train_targets <- ifelse(train_targets == "not_kidney", 0, 1)
+train_val_targets <- ifelse(train_val_targets == "not_kidney", 0, 1)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Reshape the data
+train <- model.matrix(~ ., data = train[,1:14573])
+train_val <- model.matrix(~ ., data = train_val[,1:14573])
+
+train <- train[,-1]
+train_val <- train_val[,-1]
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod13 <- keras_model_sequential() %>%
+    layer_dense(units = 512, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 128, activation = "relu") %>%
+    layer_dense(units = 1, activation = "sigmoid")
+
+mod13 %>% compile(
+    optimizer = "rmsprop",
+    loss = "binary_crossentropy",
+    metrics = c("accuracy")
+  )
+
+mod13 %>% fit(train, train_targets,
+                epochs = 4, batch_size = 128, validation_data = list(train_val, train_val_targets))
+
+preds_mod13 <- predict_on_batch(mod13, x = train_val)
+
+preds_mod13 <- ifelse(preds_mod13 >= .5, 1, 0)
+
+confusion_matrix_mod13 <- table(preds_mod13, train_val_targets)
+
+mod13_accuracy <- (confusion_matrix_mod13[1,1] + confusion_matrix_mod13[2,2]) / sum(confusion_matrix_mod13)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod13_cm <- confusion_matrix_mod13 %>% kable(caption = "Confusion Matrix 13: 77.5% accuracy")
+
+saveRDS(mod13_cm, "data/mod13_cm.rds")
+```
+
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod13, "data/mod13.rds")
+saveRDS(confusion_matrix_mod13, "confusion_mat_mod13.rds")
+```
+
+    iv.  Predict Brain:  one vs. all
+    
+```{r, echo=FALSE, warning=FALSE}
+train_targets_Brain <- ifelse(train_dat$V_14574 == "brain", "brain", "not_brain")
+
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Brain))
+
+# Sample train and validation set
+set.seed(114)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_targets <- train$V_14575
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+train_targets <- ifelse(train_targets == "not_brain", 0, 1)
+train_val_targets <- ifelse(train_val_targets == "not_brain", 0, 1)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Reshape the data
+train <- model.matrix(~ ., data = train[,1:14573])
+train_val <- model.matrix(~ ., data = train_val[,1:14573])
+
+train <- train[,-1]
+train_val <- train_val[,-1]
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod14 <- keras_model_sequential() %>%
+    layer_dense(units = 1024, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 512, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 1, activation = "sigmoid")
+
+mod14 %>% compile(
+    optimizer = "rmsprop",
+    loss = "binary_crossentropy",
+    metrics = c("accuracy")
+  )
+
+mod14 %>% fit(train, train_targets,
+                epochs = 15, batch_size = 128, validation_data = list(train_val, train_val_targets))
+
+preds_mod14 <- predict_on_batch(mod14, x = train_val)
+
+preds_mod14 <- ifelse(preds_mod14 >= .5, 1, 0)
+
+confusion_matrix_mod14 <- table(preds_mod14, train_val_targets)
+
+mod14_accuracy <- (confusion_matrix_mod14[1,1] + confusion_matrix_mod14[2,2]) / sum(confusion_matrix_mod14)
+```
+
+```{r, echo=FALSE}
+mod14_cm <- confusion_matrix_mod14 %>% kable(caption = "Confusion Matrix 14: 82.0% accuracy")
+
+saveRDS(mod14_cm, "data/mod14_cm.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod14, "data/mod14.rds")
+saveRDS(confusion_matrix_mod14, "confusion_mat_mod14.rds")
+```
+
+    v.  Predict Leukemia:  one vs. all
+    
+```{r, echo=FALSE, warning=FALSE}
+train_targets_Leukemia <- ifelse(train_dat$V_14574 == "leukemia", "leukemia", "not_leukemia")
+
+train_dat <- train_dat %>% mutate(V_14575 = factor(train_targets_Leukemia))
+
+# Sample train and validation set
+set.seed(115)
+
+indices <- sample(1:nrow(train_dat), 200)
+train <- train_dat[-indices,]
+train_targets <- train$V_14575
+train_val <- train_dat[indices,]
+train_val_targets <- train_val$V_14575
+train_targets <- ifelse(train_targets == "not_leukemia", 0, 1)
+train_val_targets <- ifelse(train_val_targets == "not_leukemia", 0, 1)
+```
+
+```{r, echo=FALSE, warning=FALSE}
+# Reshape the data
+train <- model.matrix(~ ., data = train[,1:14573])
+train_val <- model.matrix(~ ., data = train_val[,1:14573])
+
+train <- train[,-1]
+train_val <- train_val[,-1]
+```
+
+```{r, echo=FALSE, warning=FALSE}
+mod15 <- keras_model_sequential() %>%
+    layer_dense(units = 1024, activation = "relu", input_shape = dim(train)[[2]]) %>%
+    layer_dense(units = 512, activation = "relu") %>%
+    layer_dense(units = 256, activation = "relu") %>%
+    layer_dense(units = 1, activation = "sigmoid")
+
+mod15 %>% compile(
+    optimizer = "rmsprop",
+    loss = "binary_crossentropy",
+    metrics = c("accuracy")
+  )
+
+mod15 %>% fit(train, train_targets,
+                epochs = 15, batch_size = 128, validation_data = list(train_val, train_val_targets))
+
+preds_mod15 <- predict_on_batch(mod15, x = train_val)
+
+preds_mod15 <- ifelse(preds_mod15 >= .5, 1, 0)
+
+confusion_matrix_mod15 <- table(preds_mod15, train_val_targets)
+
+mod15_accuracy <- (confusion_matrix_mod15[1,1] + confusion_matrix_mod15[2,2]) / sum(confusion_matrix_mod15)
+```
+
+```{r, echo=FALSE}
+mod15_cm <- confusion_matrix_mod15 %>% kable(caption = "Confusion Matrix 15: 99.0% accuracy")
+
+saveRDS(mod15_cm, "data/mod15_cm.rds")
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# write the model to file
+
+saveRDS(mod15, "data/mod15.rds")
+saveRDS(confusion_matrix_mod15, "confusion_mat_mod15.rds")
+```
+
+## Model Evaluation on Performance Data
+
+```{r, echo=FALSE, warning=FALSE}
+# use model 1 to predict from all 4 types of cancer on performance data and evaluate
+
+mod01 <- readRDS("randomForest_01.rds")
+
+mod01_per_preds <- predict(mod01, performance_dat)
+
+perf_targets <- performance_dat$V_14574
+
+mod01_perf_conf_matrix <- table(mod01_per_preds, perf_targets)
+
+mod01_perform_cm <- mod01_perf_conf_matrix %>% kable()
+
+saveRDS(mod01_perform_cm, "data/mod01_perform_cm.rds")
+
+mod01_perf_accuracy <- (mod01_perf_conf_matrix[1,1] + mod01_perf_conf_matrix[2,2] + mod01_perf_conf_matrix[3,3] + mod01_perf_conf_matrix[4,4]) / sum(mod01_perf_conf_matrix)
+
+# predict lung vs. all w mod02
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "lung", "lung", "not_lung")))
+
+mod02 <- readRDS("data/mod02.rds")
+
+mod02_per_preds <- predict(mod02, performance_dat)
+
+perf_lung_targets <- performance_dat$V_14575
+
+mod02_perf_conf_matrix <- table(mod02_per_preds, perf_lung_targets)
+
+mod02_perform_cm <- mod02_perf_conf_matrix %>% kable()
+
+saveRDS(mod02_perform_cm, "data/mod02_perform_cm.rds")
+
+mod02_perf_accuracy <- (mod02_perf_conf_matrix[1,1] + mod02_perf_conf_matrix[2,2]) / sum(mod02_perf_conf_matrix)
+
+# predict kidney vs. all w mod03
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "kidney", "kidney", "not_kidney")))
+
+mod03 <- readRDS("data/mod03.rds")
+  
+mod03_per_preds <- predict(mod03, performance_dat)
+
+perf_kidney_targets <- performance_dat$V_14575
+
+mod03_perf_conf_matrix <- table(mod03_per_preds, perf_kidney_targets)
+
+mod03_perform_cm <- mod03_perf_conf_matrix %>% kable()
+
+saveRDS(mod03_perform_cm, "data/mod03_perform_cm.rds")
+
+mod03_perf_accuracy <- (mod03_perf_conf_matrix[1,1] + mod03_perf_conf_matrix[2,2]) / sum(mod03_perf_conf_matrix)
+
+# predict brain vs. all w mod04  
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "brain", "brain", "not_brain")))  
+
+mod04 <- readRDS("data/mod04.rds")
+
+mod04_per_preds <- predict(mod04, performance_dat)
+
+perf_brain_targets <- performance_dat$V_14575
+
+mod04_perf_conf_matrix <- table(mod04_per_preds, perf_brain_targets)
+
+mod04_perform_cm <- mod04_perf_conf_matrix %>% kable()
+
+saveRDS(mod04_perform_cm, "data/mod04_perform_cm.rds")
+
+mod04_perf_accuracy <- (mod04_perf_conf_matrix[1,1] + mod04_perf_conf_matrix[2,2]) / sum(mod04_perf_conf_matrix)
+  
+# predict leukemia vs. all w mod05
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "leukemia", "leukemia", "not_leukemia")))
+
+mod05 <- readRDS("data/mod05.rds")
+
+mod05_per_preds <- predict(mod05, performance_dat)
+
+perf_leukemia_targets <- performance_dat$V_14575
+
+mod05_perf_conf_matrix <- table(mod05_per_preds, perf_leukemia_targets)
+
+mod05_perform_cm <- mod05_perf_conf_matrix %>% kable()
+
+saveRDS(mod05_perform_cm, "data/mod05_perform_cm.rds")
+
+mod05_perf_accuracy <- (mod05_perf_conf_matrix[1,1] + mod05_perf_conf_matrix[2,2]) / sum(mod05_perf_conf_matrix)
+
+# predict all v. all w mod06  
+
+performance_dat <- performance_dat %>% select(-V_14575)  
+
+mod06 <- readRDS("boost_01.rds")
+
+mod06_per_preds <- predict(mod06, performance_dat, n.trees = 10000)
+
+perf_targets <- performance_dat$V_14574
+
+mod06_per_preds <- apply(mod06_per_preds, 1, which.max)
+
+mod06_perf_conf_matrix <- table(mod06_per_preds, perf_targets)
+
+mod06_perform_cm <- mod06_perf_conf_matrix %>% kable()
+
+saveRDS(mod06_perform_cm, "data/mod06_perform_cm.rds")
+
+mod06_perf_accuracy <- (mod06_perf_conf_matrix[1,1] + mod06_perf_conf_matrix[2,2] + mod06_perf_conf_matrix[3,3] + mod06_perf_conf_matrix[4,4]) / sum(mod06_perf_conf_matrix)
+
+# predict lung v. all w mod07
+  
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "lung", "lung", "not_lung")))
+
+mod07 <- readRDS("data/mod07.rds")
+
+mod07_per_preds <- predict(mod07, performance_dat, n.trees = 10000)
+
+mod07_per_preds <- ifelse(mod07_per_preds >= .5, 0, 1)
+
+perf_lung_targets <- performance_dat$V_14575
+
+mod07_perf_conf_matrix <- table(mod07_per_preds, perf_lung_targets)
+
+mod07_perform_cm <- mod07_perf_conf_matrix %>% kable()
+
+saveRDS(mod07_perform_cm, "data/mod07_perform_cm.rds")
+
+mod07_perf_accuracy <- (mod07_perf_conf_matrix[1,1] + mod07_perf_conf_matrix[2,2]) / sum(mod07_perf_conf_matrix)
+
+# predict kidney v all w mod08
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "kidney", "kidney", "not_kidney")))
+
+mod08 <- readRDS("data/mod08.rds")
+
+mod08_per_preds <- predict(mod08, performance_dat, n.trees = 10000)
+
+mod08_per_preds <- ifelse(mod08_per_preds >= .5, 0, 1)
+
+perf_kidney_targets <- performance_dat$V_14575
+
+mod08_perf_conf_matrix <- table(mod08_per_preds, perf_kidney_targets)
+
+mod08_perform_cm <- mod08_perf_conf_matrix %>% kable()
+
+saveRDS(mod08_perform_cm, "data/mod08_perform_cm.rds")
+
+mod08_perf_accuracy <- (mod08_perf_conf_matrix[1,1] + mod08_perf_conf_matrix[2,2]) / sum(mod08_perf_conf_matrix)
+
+# predict brain v all w mod09
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "brain", "brain", "not_brain")))
+
+mod09 <- readRDS("data/mod09.rds")
+
+mod09_per_preds <- predict(mod09, performance_dat, n.trees = 10000)
+
+mod09_per_preds <- ifelse(mod09_per_preds >= .5, 0, 1)
+
+perf_brain_targets <- performance_dat$V_14575
+
+mod09_perf_conf_matrix <- table(mod09_per_preds, perf_brain_targets)
+
+mod09_perform_cm <- mod09_perf_conf_matrix %>% kable()
+
+saveRDS(mod09_perform_cm, "data/mod09_perform_cm.rds")
+
+mod09_perf_accuracy <- (mod09_perf_conf_matrix[1,1] + mod09_perf_conf_matrix[2,2]) / sum(mod09_perf_conf_matrix)
+
+# predict leukemia v. all w mod10
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "leukemia", "leukemia", "not_leukemia")))
+
+mod10 <- readRDS("data/mod10.rds")
+
+mod10_per_preds <- predict(mod10, performance_dat, n.trees = 10000)
+
+mod10_per_preds <- ifelse(mod10_per_preds >= .5, 0, 1)
+
+perf_leukemia_targets <- performance_dat$V_14575
+
+mod10_perf_conf_matrix <- table(mod10_per_preds, perf_leukemia_targets)
+
+mod10_perform_cm <- mod10_perf_conf_matrix %>% kable()
+
+saveRDS(mod10_perform_cm, "data/mod10_perform_cm.rds")
+
+mod10_perf_accuracy <- (mod10_perf_conf_matrix[1,1] + mod10_perf_conf_matrix[2,2]) / sum(mod10_perf_conf_matrix)
+
+# predict all v. all w mod11
+
+performance_dat <- performance_dat %>% select(-V_14575)
+
+performance_dat_dl <- model.matrix(~ ., data = performance_dat[,1:14573])
+
+performance_dat_dl <- performance_dat_dl[,-1]
+
+mod11_per_preds <- predict_on_batch(mod11, performance_dat_dl)
+
+mod11_per_preds <- apply(mod11_per_preds, 1, which.max)
+
+mod11_per_preds <- factor(ifelse(mod11_per_preds == 1, "brain",
+                          ifelse(mod11_per_preds == 2, "kidney",
+                                 ifelse(mod11_per_preds == 3, "leukemia", "lung"))))
+
+perf_targets <- performance_dat$V_14574
+
+mod11_perf_conf_matrix <- table(mod11_per_preds, perf_targets)
+
+mod11_perform_cm <- mod11_perf_conf_matrix %>% kable()
+
+saveRDS(mod11_perform_cm, "data/mod11_perform_cm.rds")
+
+mod11_perf_accuracy <- (mod11_perf_conf_matrix[1,1] + mod11_perf_conf_matrix[2,2] + mod11_perf_conf_matrix[3,3] + mod11_perf_conf_matrix[4,4]) / sum(mod11_perf_conf_matrix)
+
+# predict lung v. all w mod12
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "lung", "lung", "not_lung")))
+
+mod12_per_preds <- predict_on_batch(mod12, performance_dat_dl)
+
+mod12_per_preds <- ifelse(mod12_per_preds >= .5, 0, 1)
+
+perf_lung_targets <- performance_dat$V_14575
+
+mod12_perf_conf_matrix <- table(mod12_per_preds, perf_lung_targets)
+
+mod12_perform_cm <- mod12_perf_conf_matrix %>% kable()
+
+saveRDS(mod12_perform_cm, "data/mod12_perform_cm.rds")
+
+mod12_perf_accuracy <- (mod12_perf_conf_matrix[1,1] + mod12_perf_conf_matrix[2,2]) / sum(mod12_perf_conf_matrix)
+
+# predict kidney v. all w mod13
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "kidney", "kidney", "not_kidney")))
+
+mod13_per_preds <- predict_on_batch(mod13, performance_dat_dl)
+
+mod13_per_preds <- ifelse(mod13_per_preds >= .5, 0, 1)
+
+perf_kidney_targets <- performance_dat$V_14575
+
+mod13_perf_conf_matrix <- table(mod13_per_preds, perf_kidney_targets)
+
+mod13_perform_cm <- mod13_perf_conf_matrix %>% kable()
+
+saveRDS(mod13_perform_cm, "data/mod13_perform_cm.rds")
+
+mod13_perf_accuracy <- (mod13_perf_conf_matrix[1,1] + mod13_perf_conf_matrix[2,2]) / sum(mod13_perf_conf_matrix)
+
+# predict brain v. all w mod14
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "brain", "brain", "not_brain")))
+
+mod14_per_preds <- predict_on_batch(mod14, performance_dat_dl)
+
+mod14_per_preds <- ifelse(mod14_per_preds >= .5, 0, 1)
+
+perf_brain_targets <- performance_dat$V_14575
+
+mod14_perf_conf_matrix <- table(mod14_per_preds, perf_brain_targets)
+
+mod14_perform_cm <- mod14_perf_conf_matrix %>% kable()
+
+saveRDS(mod14_perform_cm, "data/mod14_perform_cm.rds")
+
+mod14_perf_accuracy <- (mod14_perf_conf_matrix[1,1] + mod14_perf_conf_matrix[2,2]) / sum(mod14_perf_conf_matrix)
+
+# predict leukemia v. all w mod15
+
+performance_dat <- performance_dat %>% mutate(V_14575 = factor(ifelse(V_14574 == "leukemia", "leukemia", "not_leukemia")))  
+
+mod15_per_preds <- predict_on_batch(mod15, performance_dat_dl)
+
+mod15_per_preds <- ifelse(mod15_per_preds >= .5, 0, 1)
+
+perf_leukemia_targets <- performance_dat$V_14575
+
+mod15_perf_conf_matrix <- table(mod15_per_preds, perf_leukemia_targets)
+
+mod15_perform_cm <- mod15_perf_conf_matrix %>% kable()
+
+saveRDS(mod15_perform_cm, "data/mod15_perform_cm.rds")
+
+mod15_perf_accuracy <- (mod15_perf_conf_matrix[1,1] + mod15_perf_conf_matrix[2,2]) / sum(mod15_perf_conf_matrix)
+```
+
+
+## Results
+
+```{r, echo=FALSE}
+performance_results_table <- tibble(Cancer_Type = c("all cancer types", "all cancer types", "all cancer types", "lung", "lung", "lung", "kidney", "kidney", "kidney", "brain", "brain", "brain", "leukemia", "leukemia", "leukemia"), model = c("random forest", "boosting", "neural net", "random forest", "boosting", "neural net", "random forest", "boosting", "neural net", "random forest", "boosting", "neural net", "random forest", "boosting", "neural net"), Performance_Accuracy = c(mod01_perf_accuracy*100, mod06_perf_accuracy*100, mod11_perf_accuracy*100, mod02_perf_accuracy*100, mod07_perf_accuracy*100, mod12_perf_accuracy*100, mod03_perf_accuracy*100, mod08_perf_accuracy*100, mod13_perf_accuracy*100, mod04_perf_accuracy*100, mod09_perf_accuracy*100, mod14_perf_accuracy*100, mod05_perf_accuracy*100, mod10_perf_accuracy*100, mod15_perf_accuracy*100))
+```
+
+```{r}
+saveRDS(performance_results_table, "data/performance_results_table.rds")
+```
+
+
+```{r}
+performance_results_1 <- performance_results_table %>% arrange(desc(Performance_Accuracy)) %>% kable(digits = 2)
+
+saveRDS(performance_results_1, "data/performance_results_1.rds")
+```
+
+
+
+```{r}
+performance_results_2 <- performance_results_table %>% group_by(prediction) %>% summarise(mean(perf_accuracy*100)) %>% kable(digits = 2, caption = "Figure", col.names = c("Cancer Type", "Performance Accuracy"))
+
+saveRDS(performance_results_2, "data/performance_results_2.rds")
+```
+
+```{r}
+mod01_imp <- importance(rf_mod00)
+
+mod01_imp <- tibble(name = rownames(mod01_imp), imp = mod01_imp[,1])
+
+mod01_imp <- mod01_imp %>% arrange(desc(imp))
+
+mod01_imp <- full_join(mod01_imp, reference, by = "name")
+
+mod06_imp <- summary.gbm(mod06, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod06_imp <- tibble(name = mod06_imp$var, imp = mod06_imp$rel.inf)
+
+mod06_imp <- full_join(mod06_imp, reference, by = "name")
+
+join_01 <- full_join(mod01_imp, mod06_imp, by = "gene")
+
+join_01 <- join_01 %>% mutate(importance = round(imp.x + imp.y),
+  cancer = "all_cancer_types") %>% select(gene, importance, cancer)%>%arrange(desc(importance))
+
+join_01
+```
+
+```{r}
+mod02_imp <- importance(mod02, scale = 2)
+
+mod02_imp <- tibble(name = rownames(mod02_imp), imp = mod02_imp[,1])
+
+mod02_imp <- full_join(mod02_imp, reference, by = "name")
+
+mod02_imp <- mod02_imp %>% arrange(desc(imp))
+
+mod07_imp <- summary.gbm(mod07, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod07_imp <- tibble(name = mod07_imp$var, imp = mod07_imp$rel.inf)
+
+mod07_imp <- full_join(mod07_imp, reference, by = "name")
+
+join_02 <- full_join(mod02_imp, mod07_imp, by = "gene")
+
+join_02 <- join_02 %>% mutate(importance = round(imp.x + imp.y),
+                              cancer = "lung") %>% select(gene, importance, cancer) %>% arrange(desc(importance))
+
+join_02 %>% arrange(desc(importance))
+```
+
+```{r}
+mod03_imp <- importance(mod03, scale = 2)
+
+mod03_imp <- tibble(name = rownames(mod03_imp), imp = mod03_imp[,1])
+
+mod03_imp <- full_join(mod03_imp, reference, by = "name")
+
+mod03_imp <- mod03_imp %>% arrange(desc(imp))
+
+mod08_imp <- summary.gbm(mod08, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod08_imp <- tibble(name = mod08_imp$var, imp = mod08_imp$rel.inf)
+
+mod08_imp <- full_join(mod08_imp, reference, by = "name")
+
+join_03 <- full_join(mod03_imp, mod08_imp, by = "gene")
+
+join_03 <- join_03 %>% mutate(importance = round(imp.x + imp.y),
+                              cancer = "kidney") %>% select(gene, importance, cancer) %>% arrange(desc(importance))
+```
+
+```{r}
+mod04_imp <- importance(mod04, scale = 2)
+
+mod04_imp <- tibble(name = rownames(mod04_imp), imp = mod04_imp[,1])
+
+mod04_imp <- full_join(mod04_imp, reference, by = "name")
+
+mod04_imp <- mod04_imp %>% arrange(desc(imp))
+
+mod09_imp <- summary.gbm(mod09, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod09_imp <- tibble(name = mod09_imp$var, imp = mod09_imp$rel.inf)
+
+mod09_imp <- full_join(mod09_imp, reference, by = "name")
+
+join_04 <- full_join(mod04_imp, mod09_imp, by = "gene")
+
+join_04 <- join_04 %>% mutate(importance = round(imp.x + imp.y),
+                              cancer = "brain") %>% select(gene, importance, cancer) %>% arrange(desc(importance))
+```
+
+```{r}
+mod05_imp <- importance(mod05, scale = 2)
+
+mod05_imp <- tibble(name = rownames(mod05_imp), imp = mod05_imp[,1])
+
+mod05_imp <- full_join(mod05_imp, reference, by = "name")
+
+mod05_imp <- mod05_imp %>% arrange(desc(imp))
+
+mod10_imp <- summary.gbm(mod10, cBars = 50, n.trees = 10000, plotit = FALSE, order = TRUE, method = relative.influence, normalize = TRUE)
+
+mod10_imp <- tibble(name = mod10_imp$var, imp = mod10_imp$rel.inf)
+
+mod10_imp <- full_join(mod10_imp, reference, by = "name")
+
+join_05 <- full_join(mod05_imp, mod10_imp, by = "gene")
+
+join_05 <- join_05 %>% mutate(importance = round(imp.x + imp.y),
+                              cancer = "leukemia") %>% select(gene, importance, cancer) %>% arrange(desc(importance))
+```
+
+```{r}
+full_gene <- rbind(join_01, join_02, join_03, join_04, join_05)
+
+full_gene <- full_gene %>% arrange(desc(importance))
+
+important_genes <- full_gene %>% filter(importance > 1)
+
+important_gene_figure_01 <- important_genes %>% ggplot(aes(x = cancer, y = gene)) + geom_tile(aes(fill = importance)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "darkseagreen4") + ggtitle("Gene Importance") + theme(text = element_text(size = 6.5))
+
+saveRDS(important_gene_figure_01, "data/important_gene_figure_01.rds")
+
+important_genes <- full_gene %>% filter(importance > 2)
+
+important_gene_figure_02 <- important_genes %>% ggplot(aes(x = cancer, y = gene)) + geom_tile(aes(fill = importance)) + 
+  scale_fill_gradient(low = "cornsilk1", high = "gold3") + ggtitle("Gene Importance") + theme(text = element_text(size = 8))
+
+saveRDS(important_gene_figure_02, "data/important_gene_figure_02.rds")
+```
+
+
+## Conclusion
+
+
+
+
+
+

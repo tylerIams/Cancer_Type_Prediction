@@ -1,0 +1,11 @@
+"0","# Once the data has been read in, use this:"
+"0","dat <- read_csv(""data/EDA_data.csv"")"
+"2","Parsed with column specification:
+cols(
+  case = col_character(),
+  cancer_type = col_character(),
+  gene = col_character(),
+  genomic_dna_change = col_character(),
+  chromosome = col_character()
+)
+"

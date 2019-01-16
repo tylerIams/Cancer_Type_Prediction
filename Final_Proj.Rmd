@@ -1,0 +1,59 @@
+
+```{r}
+library(tidyverse)
+library(randomForest)
+```
+
+
+```{r}
+profile <- read_csv("mutation_profiles.csv")
+data <- read_csv("data/full_data.csv")
+```
+
+```{r}
+mat_dat <- data %>% select(case, gene) %>% unique() 
+case_vec <- mat_dat %>% select(case) %>% unique()
+gene_vec <- mat_dat %>% select(gene) %>% count(gene) %>% filter(n > 7) %>% select(gene)
+```
+
+```{r}
+case_vec <- case_vec %>% mutate(row = row_number())
+
+case_vec <- case_vec %>% mutate(cancer_type = ifelse(row < 101, "lung",
+                                              ifelse(row >= 101 & row < 201, "brain",
+                                              ifelse(row >= 201 & row < 301, "kidney",
+                                              ifelse(row >= 301 & row < 401, "leukemia",
+                                              ifelse(row >= 401 & row < 501, "lung",
+                                              ifelse(row >= 501 & row < 601, "brain",
+                                              ifelse(row >= 601 & row < 701, "kidney",
+                                              ifelse(row >= 701 & row < 743, "leukemia",
+                                              ifelse(row >= 743 & row < 843, "brain",
+                                              ifelse(row >= 843 & row < 960, "kidney",
+                                              ifelse(row >= 960, "lung", "error"))))))))))))
+
+
+profile <- profile %>% mutate(cancer_type = case_vec$cancer_type)
+```
+
+## Take Performance Data Out
+
+```{r}
+performance <- profile %>% sample_n(211)
+train_data <- profile %>% setdiff(performance)
+
+dat <- model.matrix(~ ., data = train_data)
+```
+
+## Random Foresting
+
+```{r}
+train <- train_data %>% sample_frac(.75)
+train_val <- train_data %>% setdiff(train)
+
+colnames(train)
+
+mod01 <- randomForest(cancer_type ~ ., data = train, mtry = 1000, n.trees = 1000)
+```
+
+
+

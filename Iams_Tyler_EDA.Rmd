@@ -1,0 +1,230 @@
+---
+title: "Iams_Tyler_EDA"
+author: "Tyler Iams"
+date: "5/6/2018"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+library(knitr)
+```
+
+## Read in Data 
+
+```{r}
+# Reader Function
+reader <- function (i, j, k) {
+  dat <- read_csv(str_c("data/", j, "_files_3/file", i, ".csv"))
+  dat <- dat %>% select(-cancer_type_1, -cancer_type_2)
+  dat <- dat %>% mutate(gene = sapply(str_split(dat$gene, ":"), "[", 2)) 
+  dat <- dat %>% mutate(gene = str_replace_all(dat$gene, "\"", ""),
+                        gene = trimws(gene))
+  dat <- dat %>% mutate(genomic_dna_change = 
+                          sapply(str_split(dat$genomic_dna_change, "\"genomic_dna_change\":"), "[", 2),
+                        genomic_dna_change = trimws(genomic_dna_change)) 
+  dat <- dat %>% mutate(genomic_dna_change = str_replace_all(dat$genomic_dna_change, "\"", ""))
+  dat <- dat %>% mutate(chromosome = sapply(strsplit(dat$genomic_dna_change, ":"), "[", 1),
+                        chromosome = trimws(chromosome))
+  dat <- dat %>% mutate(case = k)
+}
+```
+
+```{r, message=FALSE, warning=FALSE}
+# Call the function to read in all the files
+
+dat <- tibble(case = NA, cancer_type = NA, gene = NA, genomic_dna_change = NA, chromosome = NA)
+
+for (j in c("lung")) {
+  for (i in 1:98) {
+    k <- str_c(j, "_", i + 200)
+    tempfile <- reader(i, j, k)
+    dat <- rbind(dat, tempfile) %>% na.omit()
+  }
+}
+
+#data <- rbind(data, dat)
+
+write_csv(data, "data/full_data.csv")
+```
+
+```{r}
+data %>% select(gene) %>% unique()
+
+dat <- data %>% select(-genomic_dna_change) %>% unique() %>% count(gene) %>% arrange(desc(n)) %>% filter(n > 7)
+```
+
+## If data has already been read in, use this:
+
+```{r}
+# Once the data has been read in, use this:
+
+dat <- read_csv("data/full_data.csv")
+```
+
+```{r}
+# Get a general idea of the data structure
+
+table01 <- dat %>% count(cancer_type) %>% kable(col.names = c("primary_site", "num_mutations"), align = "r")
+
+
+table01
+
+plot01 <- dat %>% ggplot(aes(x = cancer_type)) + geom_bar(aes(color = cancer_type))
+
+table01
+
+plot01
+```
+
+```{r}
+# Look at most common mutations by cancer type
+
+table02 <- dat %>% select(-genomic_dna_change) %>% unique() %>% group_by(cancer_type) %>% count(gene) %>% arrange(desc(n)) %>% filter(n < 22 & n >= 20) 
+
+table03 <- dat %>% select(-genomic_dna_change) %>% unique() %>% group_by(cancer_type) %>% count(chromosome) %>% arrange(desc(n)) 
+
+table03 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = n)) + 
+  scale_fill_gradient(low = "white", high = "red")
+
+table02 %>% ggplot(aes(x = gene, y = n, color = cancer_type)) + geom_col()
+
+
+table02 %>% ggplot(aes(x = cancer_type, y = gene)) + geom_tile(aes(fill = n)) + 
+  scale_fill_gradient(low = "white", high = "red")
+
+table02
+# Looks like we need to look at proportional prevalence
+```
+
+```{r}
+
+dat02 <- dat %>% select(-genomic_dna_change) %>% unique()
+
+dat02 %>% count(cancer_type) %>% kable()
+
+dat02 <- dat02 %>% mutate(occurrances = ifelse(cancer_type == "brain", 66596,
+                          ifelse(cancer_type == "kidney", 17457,
+                          ifelse(cancer_type == "leukemia", 168970,
+                          ifelse(cancer_type == "lung", 114409, NA)))))
+
+
+dat03 <- dat02 %>% group_by(chromosome, cancer_type) %>% count(gene) %>% summarize(sum(n)) 
+
+dat03 <- dat03 %>% rename(sum = `sum(n)`)
+
+dat03 <- dat03 %>%  mutate(proportion = ifelse(cancer_type == "brain", sum/66596,
+                      ifelse(cancer_type == "kidney", sum/17457,
+                      ifelse(cancer_type == "leukemia", sum/168970,
+                      ifelse(cancer_type == "lung", sum/114409, NA)))))
+
+
+dat03 %>% ggplot(aes(x = cancer_type, y = chromosome)) + geom_tile(aes(fill = proportion)) + 
+  scale_fill_gradient(low = "white", high = "blue")
+
+
+
+dat04 <- dat02 %>% group_by(cancer_type, occurrances) %>% count(gene) %>% mutate(proportion = (n/occurrances)*100) 
+
+
+dat04 <- dat04 %>% ungroup(cancer_type, occurances) %>% select(cancer_type, gene, proportion) %>% arrange(desc(proportion)) 
+
+dat04 %>% filter(proportion >= .05) %>% ggplot(aes(x = cancer_type, y = gene)) + geom_tile(aes(fill = proportion)) + scale_fill_gradient(low = "light green", high = "dark green")
+```
+
+```{r}
+x <- 0
+y <- 0
+dat04 <- tibble(gene = NA, type1type2 = NA, ratio = NA)
+for (i in dat03$gene[1:10000]) {
+  x <- x + 1
+  y <- 0
+  for (j in dat03$gene[1:10000]) {
+    y <- y + 1
+    if (i == j & y != x) {
+      temp = tibble(gene = i, type1type2 = str_c(dat03$cancer_type[x], "/", dat03$cancer_type[y]), ratio = dat03$proportion[x]/dat03$proportion[y])
+      dat04 <- rbind(dat04, temp) %>% na.omit()
+    } 
+  }
+}
+
+# This shows me the ratios at which mutations occur in different types of cancer
+
+dat04 %>% filter(ratio >= 1) %>% arrange(desc(ratio))
+```
+
+
+```{r}
+# Make mutation profiles
+
+mat_dat <- data %>% select(case, gene) %>% unique() 
+
+case_vec <- mat_dat %>% select(case) %>% unique()
+gene_vec <- mat_dat %>% select(gene) %>% count(gene) %>% filter(n > 7) %>% select(gene)
+
+matrix <- matrix(nrow = 1057, ncol = 14573) 
+
+colnames(matrix) <- gene_vec$gene
+rownames(matrix) <- case_vec$case
+
+vec1 <- 1:1057
+vec2 <- 1:14573
+
+for (i in vec1) {
+  check_dat <- mat_dat %>% filter(case == case_vec$case[i])
+  for (j in vec2) {
+    gene <- gene_vec$gene[j]
+    for (k in check_dat$gene) {
+      if (k == gene) {
+        matrix[i,j] <- 1
+      }
+    }
+      if (is.na(matrix[i,j]) == TRUE) {
+        matrix[i,j] <- 0
+      } 
+  }
+  print(str_c("case: ", i))
+}
+
+
+matrix_df <- as.data.frame(matrix)
+
+
+write_csv(matrix_df, "mutation_profiles.csv")
+
+profile <- read_csv("mutation_profiles.csv")
+
+
+```
+
+
+```{r}
+profile <- as.tibble(matrix_df)
+
+```
+
+
+```{r}
+write_csv(genes_vec, "genes_vec.csv")
+
+profile_dat <- read_csv("mutation_profiles.csv")
+
+prof <- t(profile_dat)
+
+prof <- as_tibble(prof)
+
+colnames(prof) <- prof[1,]
+
+prof <- prof[-1,]
+
+write_csv(prof[,19001:19670], "mutation_19001_19670.csv")
+
+# data <- dat02 %>% filter(gene == "TRPM3")
+
+# genes_vec$gene[1]
+
+```
+
+
+
+
